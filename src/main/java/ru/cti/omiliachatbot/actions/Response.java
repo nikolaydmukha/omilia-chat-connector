@@ -1,4 +1,4 @@
-package main.java.ru.cti.omiliachatbot.actions;
+package ru.cti.omiliachatbot.actions;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

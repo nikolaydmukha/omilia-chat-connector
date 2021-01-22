@@ -1,10 +1,10 @@
-package main.java.ru.cti.omiliachatbot;
+package ru.cti.omiliachatbot;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import main.java.ru.cti.omiliachatbot.actions.GetURL;
-import main.java.ru.cti.omiliachatbot.actions.Request;
+import ru.cti.omiliachatbot.actions.GetURL;
+import ru.cti.omiliachatbot.actions.Request;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -49,13 +49,15 @@ public class Main {
     private static void showBotMessages(JsonObject response) throws IOException {
         String concatMessage = "";
         JsonElement actionType =  response.getAsJsonObject("action");
-        System.out.println(actionType.getAsJsonObject().get("type"));
+                System.out.println(actionType.getAsJsonObject().toString());
+//        System.out.println(actionType.getAsJsonObject().get("type"));
         JsonArray messagesJSONArray = response.getAsJsonObject("action").getAsJsonObject("message").getAsJsonArray("prompts");
         for (int i = 0; i < messagesJSONArray.size(); i++) {
             JsonObject messagePlay = (JsonObject) messagesJSONArray.get(i);
             concatMessage += messagePlay.get("content").toString().replaceAll("\"", "") + " ";
         }
         System.out.println(concatMessage);
+        System.out.println(actionType.getAsJsonObject().get("type").toString());
         if (actionType.getAsJsonObject().get("type").toString().replaceAll("\"", "").equals("TRANSFER")) {
                         System.exit(11);
         }

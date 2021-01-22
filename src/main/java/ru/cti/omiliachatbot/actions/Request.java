@@ -1,4 +1,4 @@
-package main.java.ru.cti.omiliachatbot.actions;
+package ru.cti.omiliachatbot.actions;
 
 import com.google.gson.JsonObject;
 
@@ -54,8 +54,9 @@ public class Request {
             url += dialogId.replace("\"", "");
             jsonParams = "{\"application_id\":\"HCFB\",\"utterance\":\"" + utterance + "\"}";
         }
-        System.out.println(url);
-        System.out.println(jsonParams);
+//        System.out.println(url);
+//        System.out.println(jsonParams);
+
         URL obj = new URL(url);
         HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
         //HEADER
