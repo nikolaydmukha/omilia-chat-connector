@@ -110,7 +110,7 @@
                             <archive>
                                 <manifest>
                                     <!-- give full qualified name of your main class-->
-                                    <mainClass>main.java.ru.cti.omiliachatbot.Main</mainClass>
+                                    <mainClass>main.java.ru.cti.omiliachatbot.Client</mainClass>
                                 </manifest>
                                 <manifestEntries>
                                     <Class-Path>.</Class-Path> <!-- HERE IS THE IMPORTANT BIT -->

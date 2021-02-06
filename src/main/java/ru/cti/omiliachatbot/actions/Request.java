@@ -2,7 +2,6 @@ package ru.cti.omiliachatbot.actions;
 
 import com.google.gson.JsonObject;
 
-import javax.crypto.spec.PSource;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -16,6 +15,7 @@ public class Request {
 
     public Request() {
     }
+
     /***************************************************************************/
     // Если ругается на отсутствие сертификатов, то можно игнорировать все провекри на SSL сертификаты
     // Но этот способ не очень правильный Лучше добавить нужный сертификат в keystore
@@ -54,8 +54,6 @@ public class Request {
             url += dialogId.replace("\"", "");
             jsonParams = "{\"application_id\":\"HCFB\",\"utterance\":\"" + utterance + "\"}";
         }
-//        System.out.println(url);
-//        System.out.println(jsonParams);
 
         URL obj = new URL(url);
         HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
@@ -67,18 +65,16 @@ public class Request {
         //Send post request
         con.setDoOutput(true);
         DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-//        wr.writeBytes(jsonParams);
         wr.write(jsonParams.getBytes("UTF-8"));      //текст латиницей помещается в один байт, а кириллица - нет. Поэтому
-                                                                 //так передавать!
+        //так передавать!
         wr.flush();
         wr.close();
 
         // Вернуть ответ в формате JSON
-        if ("[hup]".equals(utterance)){
+        if ("[hup]".equals(utterance)) {
             response.returnJSONResponse(con);
             return null;
-        }
-        else {
+        } else {
             JsonObject responseJSON = response.returnJSONResponse(con);
             return responseJSON;
         }

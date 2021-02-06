@@ -1,75 +1,128 @@
 package ru.cti.omiliachatbot.connector;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import ru.cti.omiliachatbot.actions.Request;
+import ru.cti.omiliachatbot.config.AppConfig;
+import ru.cti.omiliachatbot.utils.Log;
+import ru.cti.omiliachatbot.utils.Prompt;
+import ru.cti.omiliachatbot.utils.PromptMapper;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 
 public class Server {
-    public static void main(String[] args) {
 
-        try (ServerSocket server = new ServerSocket(9091)) {
+    static AppConfig appConfig = new AppConfig();
+    static String connectionURL = appConfig.getOmiliaConnectionURL();
+    static String dialogURL = appConfig.getOmiliaDialogURL();
+    static JsonObject response;
+    static Request request = new Request();
+    static Log log = new Log();
+
+    public static void main(String[] args) throws Exception {
+
+        try (ServerSocket server = new ServerSocket(appConfig.getConnectorPort())) {
             Socket client = server.accept();
-
-            System.out.print("Connection accepted.");
-
             // канал записи в сокет
             DataOutputStream dos = new DataOutputStream(client.getOutputStream());
-            System.out.println("DataOutputStream  created");
-
             // канал чтения из сокета
             DataInputStream dis = new DataInputStream(client.getInputStream());
-            System.out.println("DataInputStream created");
+
+            String utterance = null;
+            String dialogId = null;
+            //Сделать запрос "Start new dialog"
+            //Вывести на экран сообщения бота после Start new dialog - приветствие
+            response = request.makeRequest(connectionURL, utterance, dialogId);
+            dialogId = getDialogId(response);
+            //Пересылаем приветственные ролик
+            ArrayList<String> welcomePrompts = showBotMessages(response, dialogId);
+            log.loggingMessage("Connection accepted. DialogID: " + dialogId + "Welcome message: >>> " + welcomePrompts.get(2) + "\n");
+            dos.writeUTF(welcomePrompts.get(0));
+            dos.flush();
 
             // начинаем диалог с подключенным клиентом в цикле, пока сокет не закрыт
             while (!client.isClosed()) {
-
-                System.out.println("Server reading from channel");
-
-                // сервер ждёт в канале чтения (inputstream) получения данных клиента
+                // ждем получения данных клиента
                 String entry = dis.readUTF();
-
-                // после получения данных считывает их
-                System.out.println("READ from client message - " + entry);
-
-                // и выводит в консоль
-                System.out.println("Server try writing to channel - " + entry);
-
-                // инициализация проверки условия продолжения работы с клиентом по этому сокету по кодовому слову - quit
-                if (entry.equalsIgnoreCase("quit")) {
-                    System.out.println("Client initialize connections suicide ...");
-                    dos.flush();
-                    Thread.sleep(3000);
-                    break;
-                }
-
+                // логгируем сообщение клиента
+                log.loggingMessage("DialogID: " + dialogId + " User utterance >>>" + entry + "\n");
+                response = request.makeRequest(dialogURL, entry, dialogId);
+                ArrayList<String> answer = showBotMessages(response, dialogId);
+                log.loggingMessage("DialogID: " + dialogId + " Omilia answer >>> " + answer.get(2) + "\n");
                 // если условие окончания работы не верно - продолжаем работу - отправляем эхо-ответ  обратно клиенту
-                dos.writeUTF(entry.concat("-OK"));
-                // освобождаем буфер сетевых сообщений (по умолчанию сообщение не сразу отправляется в сеть, а сначала
-                // накапливается в специальном буфере сообщений, размер которого определяется конкретными настройками в
-                // системе, а метод  - flush() отправляет сообщение не дожидаясь наполнения буфера согласно настройкам системы
+                if (answer.get(0).equals("TRANSFER")) {
+                    dos.writeUTF(answer.get(0));
+                    dos.flush();
+                    System.exit(11);
+                }
+                dos.writeUTF(answer.get(0));
                 dos.flush();
-                System.out.println("Server Wrote message to client.");
             }
             // если условие выхода - верно выключаем соединения
-            System.out.println("Client disconnected");
-            System.out.println("Closing connections & channels.");
-
             // закрываем сначала каналы сокета !
             dis.close();
             dos.close();
-
             // потом закрываем сам сокет общения на стороне сервера!
             client.close();
-
-            // потом закрываем сокет сервера, который создаёт сокеты общения
-            // хотя при многопоточном применении его закрывать не нужно
-            // для возможности поставить этот серверный сокет обратно в ожидание нового подключения
-
-            System.out.println("Closing connections & channels - DONE.");
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
     }
+
+    private static String getDialogId(JsonObject response) {
+        return response.get("dialogId").toString();
+    }
+
+    private static ArrayList<String> showBotMessages(JsonObject response, String dialogId) throws Exception {
+
+        ArrayList<String> parsedAnswer = new ArrayList<>();
+        JsonElement actionType = response.getAsJsonObject("action");
+        ArrayList<Prompt> prompts = getPromptsFromOmiliaReply(response);
+//        System.out.println(getAnswerType(actionType));
+        ArrayList<Prompt> promptsAfterPing = new ArrayList<>();
+        //если Omilia сначала говорит announce, а потом должна сделать ask, но без "пинка" молчит
+        if (getAnswerType(actionType).equals("ANNOUNCEMENT")) {
+            try {
+                promptsAfterPing = checkForASK(dialogId);
+                System.out.println((promptsAfterPing.get(0).getContent()));
+            } catch (IOException ex) {
+                System.out.println(ex.getMessage());
+            }
+        }
+        prompts.addAll(promptsAfterPing);
+        parsedAnswer.add(preparePromptsOutput(prompts));
+        parsedAnswer.add(getAnswerType(actionType));
+        parsedAnswer.add(actionType.toString());
+        return parsedAnswer;
+    }
+
+    private static ArrayList<Prompt> getPromptsFromOmiliaReply(JsonObject response) throws IOException {
+        ArrayList<Prompt> promptList = new ArrayList<>();
+        ArrayList<Prompt> prompts = PromptMapper.convert(response.getAsJsonObject("action").getAsJsonObject("message").getAsJsonArray("prompts").toString());
+        prompts.stream().forEach(item -> promptList.add(item));
+        return promptList;
+    }
+
+    private static String preparePromptsOutput(ArrayList<Prompt> prompts) {
+        StringBuilder output = new StringBuilder();
+        for (Prompt prompt : prompts) {
+            output.append(prompt.getContent());
+        }
+        return output.toString();
+    }
+
+    private static String getAnswerType(JsonElement answerType) {
+        return answerType.getAsJsonObject().get("type").toString().replaceAll("\"", "");
+    }
+
+    private static ArrayList<Prompt> checkForASK(String dialogId) throws Exception {
+        response = request.makeRequest(dialogURL, "[noinput]", dialogId);
+        return getPromptsFromOmiliaReply(response);
+    }
+
 }
