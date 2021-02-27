@@ -25,14 +25,16 @@ public class Server {
     static Log log = new Log();
 
     public static void main(String[] args) throws Exception {
+        while (true) {
+            try (ServerSocket server = new ServerSocket(appConfig.getConnectorPort())) {
+                Socket socket = server.accept();
 
-        try (ServerSocket server = new ServerSocket(appConfig.getConnectorPort())) {
-            Socket socket = server.accept();
-
-            Thread t = new ServerThread(socket);
-            // Invoking the start() method
-            t.start();
-
+                Thread t = new ServerThread(socket);
+                // Invoking the start() method
+                t.start();
+            } catch (IOException e) {
+            e.printStackTrace();}
+        }
 //            // канал записи в сокет
 //            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
 //            // канал чтения из сокета
@@ -76,58 +78,58 @@ public class Server {
 //            socket.close();
 //        } catch (IOException | InterruptedException e) {
 //            e.printStackTrace();
-        }
+//        }
     }
 
-    private static String getDialogId(JsonObject response) {
-        return response.get("dialogId").toString();
-    }
-
-    private static ArrayList<String> showBotMessages(JsonObject response, String dialogId) throws Exception {
-
-        ArrayList<String> parsedAnswer = new ArrayList<>();
-        JsonElement actionType = response.getAsJsonObject("action");
-        ArrayList<Prompt> prompts = getPromptsFromOmiliaReply(response);
-//        System.out.println(getAnswerType(actionType));
-        ArrayList<Prompt> promptsAfterPing = new ArrayList<>();
-        //если Omilia сначала говорит announce, а потом должна сделать ask, но без "пинка" молчит
-        if (getAnswerType(actionType).equals("ANNOUNCEMENT")) {
-            try {
-                promptsAfterPing = checkForASK(dialogId);
-                System.out.println((promptsAfterPing.get(0).getContent()));
-            } catch (IOException ex) {
-                System.out.println(ex.getMessage());
-            }
-        }
-        prompts.addAll(promptsAfterPing);
-        parsedAnswer.add(preparePromptsOutput(prompts));
-        parsedAnswer.add(getAnswerType(actionType));
-        parsedAnswer.add(actionType.toString());
-        return parsedAnswer;
-    }
-
-    private static ArrayList<Prompt> getPromptsFromOmiliaReply(JsonObject response) throws IOException {
-        ArrayList<Prompt> promptList = new ArrayList<>();
-        ArrayList<Prompt> prompts = PromptMapper.convert(response.getAsJsonObject("action").getAsJsonObject("message").getAsJsonArray("prompts").toString());
-        prompts.stream().forEach(item -> promptList.add(item));
-        return promptList;
-    }
-
-    private static String preparePromptsOutput(ArrayList<Prompt> prompts) {
-        StringBuilder output = new StringBuilder();
-        for (Prompt prompt : prompts) {
-            output.append(prompt.getContent());
-        }
-        return output.toString();
-    }
-
-    private static String getAnswerType(JsonElement answerType) {
-        return answerType.getAsJsonObject().get("type").toString().replaceAll("\"", "");
-    }
-
-    private static ArrayList<Prompt> checkForASK(String dialogId) throws Exception {
-        response = request.makeRequest(dialogURL, "[noinput]", dialogId);
-        return getPromptsFromOmiliaReply(response);
-    }
+//    private static String getDialogId(JsonObject response) {
+//        return response.get("dialogId").toString();
+//    }
+//
+//    private static ArrayList<String> showBotMessages(JsonObject response, String dialogId) throws Exception {
+//
+//        ArrayList<String> parsedAnswer = new ArrayList<>();
+//        JsonElement actionType = response.getAsJsonObject("action");
+//        ArrayList<Prompt> prompts = getPromptsFromOmiliaReply(response);
+////        System.out.println(getAnswerType(actionType));
+//        ArrayList<Prompt> promptsAfterPing = new ArrayList<>();
+//        //если Omilia сначала говорит announce, а потом должна сделать ask, но без "пинка" молчит
+//        if (getAnswerType(actionType).equals("ANNOUNCEMENT")) {
+//            try {
+//                promptsAfterPing = checkForASK(dialogId);
+//                System.out.println((promptsAfterPing.get(0).getContent()));
+//            } catch (IOException ex) {
+//                System.out.println(ex.getMessage());
+//            }
+//        }
+//        prompts.addAll(promptsAfterPing);
+//        parsedAnswer.add(preparePromptsOutput(prompts));
+//        parsedAnswer.add(getAnswerType(actionType));
+//        parsedAnswer.add(actionType.toString());
+//        return parsedAnswer;
+//    }
+//
+//    private static ArrayList<Prompt> getPromptsFromOmiliaReply(JsonObject response) throws IOException {
+//        ArrayList<Prompt> promptList = new ArrayList<>();
+//        ArrayList<Prompt> prompts = PromptMapper.convert(response.getAsJsonObject("action").getAsJsonObject("message").getAsJsonArray("prompts").toString());
+//        prompts.stream().forEach(item -> promptList.add(item));
+//        return promptList;
+//    }
+//
+//    private static String preparePromptsOutput(ArrayList<Prompt> prompts) {
+//        StringBuilder output = new StringBuilder();
+//        for (Prompt prompt : prompts) {
+//            output.append(prompt.getContent());
+//        }
+//        return output.toString();
+//    }
+//
+//    private static String getAnswerType(JsonElement answerType) {
+//        return answerType.getAsJsonObject().get("type").toString().replaceAll("\"", "");
+//    }
+//
+//    private static ArrayList<Prompt> checkForASK(String dialogId) throws Exception {
+//        response = request.makeRequest(dialogURL, "[noinput]", dialogId);
+//        return getPromptsFromOmiliaReply(response);
+//    }
 
 }
