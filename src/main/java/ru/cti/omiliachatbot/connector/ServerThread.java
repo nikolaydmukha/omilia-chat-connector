@@ -9,6 +9,7 @@ import ru.cti.omiliachatbot.utils.Log;
 import ru.cti.omiliachatbot.utils.Prompt;
 import ru.cti.omiliachatbot.utils.PromptMapper;
 
+import java.awt.image.AreaAveragingScaleFilter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -18,52 +19,53 @@ import java.util.ArrayList;
 public class ServerThread extends Thread {
 
     private Socket socket;
+    private DataOutputStream dos;
+    private DataInputStream dis;
+    private Log log;
     static AppConfig appConfig = new AppConfig();
     static String connectionURL = appConfig.getOmiliaConnectionURL();
     static String dialogURL = appConfig.getOmiliaDialogURL();
     static JsonObject response;
+    static JsonObject welcomeMessageResponse;
     static Request request = new Request();
-    static Log log = new Log();
 
-    public ServerThread(Socket socket) {
+    public ServerThread(Socket socket, DataOutputStream dos, DataInputStream dis, Log log) {
         this.socket = socket;
+        this.dos = dos;
+        this.dis = dis;
+        this.log = log;
     }
 
     @SneakyThrows
     @Override
     public void run() {
+        String entry;
+        ArrayList<String> answer;
+        ArrayList<String> toClient = new ArrayList<>();
         try {
-            // канал записи в сокет
-            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-            // канал чтения из сокета
-            DataInputStream dis = new DataInputStream(socket.getInputStream());
+            welcomeMessageResponse = dialogInit();
+            String dialogId = getDialogId(welcomeMessageResponse);
 
-            String utterance = null;
-            String dialogId = null;
-            //Сделать запрос "Start new dialog"
-            //Вывести на экран сообщения бота после Start new dialog - приветствие
-            response = request.makeRequest(connectionURL, utterance, dialogId);
-            dialogId = getDialogId(response);
             //Пересылаем приветственный ролик
-            ArrayList<String> welcomePrompts = showBotMessages(response, dialogId);
+            ArrayList<String> welcomePrompts = showBotMessages(welcomeMessageResponse, dialogId);
             log.loggingMessage("Connection accepted. DialogID: " + dialogId + "Welcome message: >>> " + welcomePrompts.get(2) + "\n");
             dos.writeUTF(welcomePrompts.get(0));
             dos.flush();
 
-            // начинаем диалог с подключенным клиентом в цикле, пока сокет не закрыт
-            while (!socket.isClosed()) {
+            // начинаем диалог с подключенным клиентом в цикле, пока сокет не закрыт(пока поток не прерван)
+            while (!this.isInterrupted()) {
                 // ждем получения данных клиента
-                String entry = dis.readUTF();
+                entry = dis.readUTF();
                 // логгируем сообщение клиента
                 log.loggingMessage("DialogID: " + dialogId + " User utterance >>>" + entry + "\n");
+
                 response = request.makeRequest(dialogURL, entry, dialogId);
-                ArrayList<String> answer = showBotMessages(response, dialogId);
+                answer = showBotMessages(response, dialogId);
                 log.loggingMessage("DialogID: " + dialogId + " Omilia answer >>> " + answer.get(2) + "\n");
-                // если условие окончания работы не верно - продолжаем работу - отправляем эхо-ответ  обратно клиенту
-                if (answer.get(0).equals("TRANSFER")) {
-                    dos.writeUTF(answer.get(0));
-                    dos.flush();
-                    System.exit(11);
+
+                // если условие окончания работы не верно - продолжаем работу
+                if (answer.get(1).equalsIgnoreCase("transfer")) {
+                    this.interrupt();
                 }
                 dos.writeUTF(answer.get(0));
                 dos.flush();
@@ -74,9 +76,19 @@ public class ServerThread extends Thread {
             dos.close();
             // потом закрываем сам сокет общения на стороне сервера!
             socket.close();
-        }catch (Exception ex){
-            System.out.println(ex.getMessage());
+        } catch (Exception ex) {
+            log.loggingMessage(ex.getMessage());
         }
+    }
+
+    private JsonObject dialogInit() throws Exception {
+        //Сделать запрос "Start new dialog"
+        //Вывести на экран сообщения бота после Start new dialog - приветствие
+        String utterance = null;
+        String dialogId = null;
+
+        response = request.makeRequest(connectionURL, utterance, dialogId);
+        return response;
     }
 
     private static String getDialogId(JsonObject response) {
@@ -88,7 +100,6 @@ public class ServerThread extends Thread {
         ArrayList<String> parsedAnswer = new ArrayList<>();
         JsonElement actionType = response.getAsJsonObject("action");
         ArrayList<Prompt> prompts = getPromptsFromOmiliaReply(response);
-//        System.out.println(getAnswerType(actionType));
         ArrayList<Prompt> promptsAfterPing = new ArrayList<>();
         //если Omilia сначала говорит announce, а потом должна сделать ask, но без "пинка" молчит
         if (getAnswerType(actionType).equals("ANNOUNCEMENT")) {

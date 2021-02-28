@@ -1,6 +1,7 @@
 package ru.cti.omiliachatbot.actions;
 
 import com.google.gson.JsonObject;
+import ru.cti.omiliachatbot.config.AppConfig;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -13,8 +14,7 @@ import java.security.cert.X509Certificate;
 
 public class Request {
 
-    public Request() {
-    }
+    private static AppConfig appConfig = new AppConfig();
 
     /***************************************************************************/
     // Если ругается на отсутствие сертификатов, то можно игнорировать все провекри на SSL сертификаты
@@ -49,10 +49,10 @@ public class Request {
         /*****************************************************************************/
 
         //JSON sending params
-        jsonParams = "{\"application_id\":\"HCFB\",\"source\":\"chat\"}";
+        jsonParams = "{\"application_id\":\""+appConfig.getOmiliaAppName()+"\",\"source\":\"chat\"}";
         if (dialogId != null) {
             url += dialogId.replace("\"", "");
-            jsonParams = "{\"application_id\":\"HCFB\",\"utterance\":\"" + utterance + "\"}";
+            jsonParams = "{\"application_id\":\""+appConfig.getOmiliaAppName()+"\",\"utterance\":\"" + utterance + "\"}";
         }
 
         URL obj = new URL(url);

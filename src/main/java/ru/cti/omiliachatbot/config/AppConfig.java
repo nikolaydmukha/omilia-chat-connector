@@ -25,11 +25,15 @@ public class AppConfig {
     }
 
     public String getOmiliaConnectionURL() {
-        return getParam("omilia.connection.url");
+        return getParam("omiliaAPI.connection.url");
     }
 
     public String getOmiliaDialogURL() {
-        return getParam("omilia.dialog.url");
+        return getParam("omiliaAPI.dialog.url");
+    }
+
+    public String getOmiliaAppName() {
+        return getParam("omiliaAPI.appname");
     }
 
     private String getParam(String param) {
