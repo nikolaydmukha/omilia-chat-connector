@@ -9,7 +9,6 @@ import ru.cti.omiliachatbot.utils.Log;
 import ru.cti.omiliachatbot.utils.Prompt;
 import ru.cti.omiliachatbot.utils.PromptMapper;
 
-import java.awt.image.AreaAveragingScaleFilter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;

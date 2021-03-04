@@ -40,5 +40,4 @@ public class AppConfig {
         return props.getProperty(param);
     }
 
-
 }
